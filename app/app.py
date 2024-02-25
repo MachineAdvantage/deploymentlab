@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask
+from flask import Flask, render_template
 from flask_migrate import Migrate
 
 from models import db
@@ -19,8 +19,8 @@ Migrate(app, db)
 
 @app.route('/')
 def index():
-    return "Hello World"
-    # return render_template('index.html')  # Create an index.html template
+    """Render the index.html as the main page."""
+    return render_template('index.html')  # Create an index.html template
 
 # if __name__ == '__main__':
 #     app.run()
