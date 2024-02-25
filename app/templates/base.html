@@ -11,19 +11,21 @@
 
 <!--  Quick and dirty tailwind to save some time on css -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Load HTMX for some nice reactivity without much js --->
+  <script src="https://unpkg.com/htmx.org@1.7.0"></script>
 </head>
 <body>
 
 <!-- navbar, tune tailwind stuff -->
 <header class="w-full bg-gray-50 font-bold px-8 py-2 flex justify-between shadow items-center">
-  <a href="{{ url_for('index') }}" class="font-bold text-2xl">WebAuthn Flask</a>
+  <a href="{{ url_for('index') }}" class="font-bold text-2xl">AI Test My Code</a>
   <nav class="flex justify-end space-x-4 items-center">
     <!-- We'll come back and fill in the actual links later -->
     <div>
-      <a href="#" class="hover:underline font-bold text-xl">Login</a>
+      <a href="{{ url_for('auth.login') }}" class="hover:underline font-bold text-xl">Login</a>
     </div>
     <div>
-      <a href="#" class="hover:underline font-bold text-xl">Register</a>
+      <a href="{{ url_for('auth.register') }}" class="hover:underline font-bold text-xl">Register</a>
     </div>
   </nav>
 </header>
