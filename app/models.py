@@ -9,6 +9,11 @@ db = SQLAlchemy()
 # Don't directly call this function it will yield the same uids
 def _str_uuid():
     return str(uuid.uuid4())
+# Generate a random UUID
+# uuid_bytes = uuid.uuid4().bytes
+
+# Convert the UUID bytes to a UUID object
+# uuid_obj = uuid.UUID(bytes=uuid_bytes)
 
     
 class User(db.Model):
@@ -20,9 +25,9 @@ class User(db.Model):
     name = db.Column(db.String(255), nullable=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
     credentials = db.relationship(
-    "WebAuthnCredential",
-    backref=backref("user", cascade="all, delete"),
-    lazy=True
+        "WebAuthnCredential",
+        backref=backref("user", cascade="all, delete"),
+        lazy=True
     )
     # TODO update; use of relationship.back_populates with explicit relationship() constructs should be preferred.
 

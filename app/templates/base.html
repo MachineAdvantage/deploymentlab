@@ -13,6 +13,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Load HTMX for some nice reactivity without much js --->
   <script src="https://unpkg.com/htmx.org@1.7.0"></script>
+  <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+  <script>
+    console.log('SimpleWebAuthnBrowser', SimpleWebAuthnBrowser)
+    const { startRegistration } = SimpleWebAuthnBrowser;
+  </script>
 </head>
 <body>
 
