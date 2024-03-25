@@ -3,7 +3,7 @@
 
 # # Wait for the database to be ready
 # RUN apt-get update
-# RUN apt-get install -y wait-for-it  
+# RUN apt-get install -y wait-for-it
 
 # # Install Poetry & waitress for serving the app
 # RUN pip install poetry

@@ -1,7 +1,7 @@
 <form hx-post="{{ url_for('auth.create_user') }}" hx-swap="outerHTML" class="flex-col max-w-sm mx-auto space-y-2">
     <h4 class="text-2xl font-bold">Register</h4>
     <p class="italic text-base">
-      Create your user account below. 
+      Create your user account below.
     </p>
     {% if error %}
     <div class="text-red-600">{{ error }}</div>

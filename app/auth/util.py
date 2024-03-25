@@ -1,3 +1,4 @@
+"""Utility functions for authentication"""
 import json
 from urllib.parse import urlparse, urljoin
 import smtplib
@@ -9,12 +10,14 @@ from flask import make_response, request, current_app
 
 
 def make_json_response(body, status=200):
+    """Create a JSON response with the given body and status code."""
     res = make_response(json.dumps(body), status)
     res.headers["Content-Type"] = "application/json"
     return res
 
 
 def is_safe_url(target):
+    """Make http urls into safe urls."""
     ref_url = urlparse(request.host_url)
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ("http", "https") and ref_url.netloc == test_url.netloc
@@ -22,7 +25,6 @@ def is_safe_url(target):
 
 def send_email(to, subject, body_text, body_html=None):
     """Utility function for sending email with smtplib"""
-    # TODO replace with Flask-Mailman and Mailgun API 
     mail_from = current_app.config["MAIL_FROM"]
     message = MIMEMultipart("alternative")
     message["Subject"] = subject

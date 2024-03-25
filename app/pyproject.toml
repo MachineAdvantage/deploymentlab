@@ -25,6 +25,10 @@ pytest = "^8.1.1"
 pytest = "^8.0.1"
 
 
+[tool.pylint.MASTER]
+ignore-paths = "migrations"
+
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
