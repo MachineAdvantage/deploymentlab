@@ -3,19 +3,22 @@ import datetime
 import uuid
 import json
 from urllib.parse import urlparse
+import secrets 
+
+from flask import Blueprint, request, current_app, url_for
+from redis import Redis
 import webauthn
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
     PublicKeyCredentialDescriptor,
 )
-
-from flask import Blueprint, request, current_app
-from redis import Redis
+from argon2 import PasswordHasher
 
 from models import WebAuthnCredential, db
 
 
+# All the REDIS databases!
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = os.getenv("REDIS_PORT")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
@@ -25,9 +28,14 @@ REGISTRATION_CHALLENGES = Redis(
 AUTHENTICATION_CHALLENGES = Redis(
     host=REDIS_HOST, port=REDIS_PORT, db=1, password=REDIS_PASSWORD
 )
+EMAIL_AUTH_SECRETS = Redis(
+    host=REDIS_HOST, port=REDIS_PORT, db=2, password=REDIS_PASSWORD
+)
 
 
+# Globals
 auth = Blueprint("auth", __name__, template_folder="templates")
+ph = PasswordHasher() 
 
 
 def _hostname():
@@ -141,3 +149,22 @@ def verify_authentication_credential(user, authentication_credential):
     stored_credential.current_sign_count += 1
     db.session.add(stored_credential)
     db.session.commit()
+
+
+def generate_magic_link(user_uid):
+    """Generate a special secret link to log in a user and save a hash of the secret."""
+    url_secret = secrets.token_urlsafe()
+    secret_hash = ph.hash(url_secret)
+    EMAIL_AUTH_SECRETS.set(user_uid, secret_hash)
+    EMAIL_AUTH_SECRETS.expire(user_uid, datetime.timedelta(minutes=10))
+    return url_for("auth.magic_link", secret=url_secret, _external=True, _scheme="https")
+
+
+def verify_magic_link(user_uid, secret):
+    """Verify the secret from a magic login link against the saved hash for that 
+    user."""
+    secret_hash = EMAIL_AUTH_SECRETS.get(user_uid)
+    if ph.verify(secret_hash, secret):
+        EMAIL_AUTH_SECRETS.expire(user_uid, datetime.timedelta(seconds=1))
+        return True
+    return False

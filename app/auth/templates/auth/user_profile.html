@@ -20,4 +20,22 @@
         <!-- TODO list the devices/methods instead of the number so people can manage them-->
     </div>
   </div>
+  {% if not session.get("used_webauthn") %}
+  <!-- TODO change to depend on whether the current device credential-->
+  <div class="flex flex-col" id="webauthn_registration_section">
+    <p class="italic">It doesn't look like you have passwordless login set up on
+      this device. If you plan on logging in from this device in the future, 
+      consider setting one up here. Only do this if you are using your own personal device.</p>
+    <div class="mt-4">
+      <a
+          hx-get="{{ url_for('auth.create_credential') }}"
+          hx-target="#webauthn_registration_section"
+          hx-swap="innerHTML"
+          class="text-white uppercase font-bold bg-blue-600 px-4 py-2 rounded cursor-pointer hover:bg-blue-700 shadow hover:shadow-lg"
+      >Start Setup</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
 {% endblock content %}

@@ -17,9 +17,15 @@ app.register_blueprint(auth, url_prefix="/auth")
 logging.basicConfig(level=logging.DEBUG)
 
 # Database and env var configuration
-app.config['SQLALCHEMY_DATABASE_URI'] =  os.getenv('DATABASE_URL')  # "postgresql://testuser:testpassword@db:5432/appdb" 
+app.config['SQLALCHEMY_DATABASE_URI'] =  os.getenv('DATABASE_URL') 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER")
+app.config["MAIL_PORT"] = int(os.getenv("MAIL_PORT"))  
+app.config["MAIL_FROM"] = os.getenv("MAIL_FROM")
+
 
 db.init_app(app)
 Migrate(app, db)
@@ -34,10 +40,7 @@ login_manager.login_view = "auth.login"
 @app.route('/')
 def index():
     """Render the index.html as the main page."""
-    #logging test
-    app.logger.info('TESTING TESTING Processing request for index route')
-    #end test
-    return render_template('index.html')  # Create an index.html template
+    return render_template('index.html')  
 
 
 @login_manager.user_loader
