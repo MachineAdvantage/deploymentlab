@@ -1,21 +1,22 @@
 import datetime
 import json
-import uuid
 
 from flask import (
     Blueprint, render_template, request, make_response, session, 
     abort, current_app, url_for, redirect)
 from sqlalchemy import or_, func
 from sqlalchemy.exc import IntegrityError
-from webauthn.helpers.exceptions import InvalidRegistrationResponse, InvalidAuthenticationResponse
+from webauthn.helpers.exceptions import (
+    InvalidRegistrationResponse, InvalidAuthenticationResponse)
 from webauthn.helpers.structs import (
     AuthenticationCredential, PublicKeyCredentialCreationOptions)
 from webauthn.helpers import (
     base64url_to_bytes, bytes_to_base64url, parse_registration_credential_json,
     parse_authentication_credential_json)
+from flask_login import login_user, login_required, current_user, logout_user
 
 from models import db, User
-from auth import security
+from auth import security, util
 
 
 auth = Blueprint("auth", __name__, template_folder="templates")
@@ -45,6 +46,8 @@ def create_user():
             "Please enter a different one.",
         )
     
+    login_user(user)  # TODO shouldn't this be further down?
+    
     pcco_json = security.prepare_credential_creation(user)
 
     res = make_response(
@@ -53,45 +56,8 @@ def create_user():
             public_credential_creation_options=pcco_json,
         )
     )
-    session['registration_user_uid'] = user.uid
-
+    session['registration_user_uid'] = user.uid  # TODO still necessary with flask login?
     return res
-
-@auth.route("/add-credential", methods=["POST"])
-def add_credential():
-    """Receive a newly registered credentials to validate and save."""
-    user_uid = session.get("registration_user_uid")
-    if not user_uid:
-        abort(make_response("Error user not found", 400))
-
-    registration_data = request.get_data()
-
-    ## Use py_webauthn to parse the registration data
-    registration_json_data = json.loads(registration_data)
-    registration_credential = parse_registration_credential_json(registration_json_data)
-
-    user = User.query.filter_by(uid=user_uid).first()
-
-    try:
-        security.verify_and_save_credential(user, registration_credential)
-
-        session["registration_user_uid"] = None
-        res = make_response('{"verified": true}', 201)
-        res.set_cookie(
-            "user_uid",
-            user.uid,
-            httponly=True,
-            secure=True,
-            samesite="strict",
-            max_age=datetime.timedelta(days=30), #TODO: change to less
-        )
-        
-        current_app.logger.info('success?') #, flush=True)
-
-        return res
-    except InvalidRegistrationResponse as e:
-        current_app.logger.error('Invalid registration response: ' + str(e))
-        abort(make_response('{"verified": false}', 400))
 
 
 @auth.route("/login", methods=["GET"])
@@ -109,6 +75,40 @@ def login():
     session['login_user_uid'] = user.uid
 
     return render_template("auth/login.html", username=user.username, auth_options=auth_options)
+
+
+@auth.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
+@auth.route("/add-credential", methods=["POST"])
+@login_required
+def add_credential():
+    """Receive a newly registered credentials to validate and save."""
+    registration_data = request.get_data()
+    registration_json_data = json.loads(registration_data)
+    registration_credential = parse_registration_credential_json(registration_json_data)
+    try:
+        security.verify_and_save_credential(current_user, registration_credential)
+        session["registration_user_uid"] = None
+        res = util.make_json_response(
+            {"verified": True, "next": url_for("auth.user_profile")}
+        )
+        res.set_cookie(
+            "user_uid",
+            current_user.uid,  # TODO should this be .get_id()?
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=datetime.timedelta(days=30), #TODO: change to less
+        )
+        return res
+    except InvalidRegistrationResponse as e:
+        current_app.logger.error('Invalid registration response: ' + str(e))
+        abort(make_response('{"verified": false}', 400))
 
 
 @auth.route("/prepare-login", methods=["POST"])
@@ -164,19 +164,30 @@ def login_switch_user():
 @auth.route("/verify-login-credential", methods=["POST"])
 def verify_login_credential():
     """Remove a remembered user and show the username form again."""
-    user_uid = session.get("login_user_uid")
+    user_uid = session.get("login_user_uid")  # TODO should this be current_user?
     user = User.query.filter_by(uid=user_uid).first()
     if not user:
         abort(make_response('{"verified": false}', 400))
     
     authetication_data = request.get_data()
-    # current_app.logger.info(f'authetication_data(type: {type(authetication_data)}): ' + str(authetication_data))
     authetication_json_data = json.loads(authetication_data)
 
     authentication_credential = parse_authentication_credential_json(authetication_json_data)
     try:
         security.verify_authentication_credential(user, authentication_credential)
-        return make_response('{"verified": true}')
+        login_user(user)
+        next_ = request.args.get('next')
+        if not next_ or not util.is_safe_url(next_):
+            next_ = url_for("auth.user_profile")
+            
+        return util.make_json_response({"verified": True, "next": next_})
+        # return make_response('{"verified": true}')
     except InvalidAuthenticationResponse as e:
         current_app.logger.error('Invalid authentication response: ' + str(e))
         abort(make_response('{"verified": false}', 400))
+
+
+@auth.route('/profile')
+@login_required
+def user_profile():
+    return render_template("auth/user_profile.html")

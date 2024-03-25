@@ -29,7 +29,29 @@ class User(db.Model):
         backref=backref("user", cascade="all, delete"),
         lazy=True
     )
-    # TODO update; use of relationship.back_populates with explicit relationship() constructs should be preferred.
+    # TODO update; use of relationship. back_populates with explicit relationship() constructs should be preferred.
+
+    @property
+    def is_authenticated(self):
+        """If we can access this user model from current user, they are authenticated,
+        so this always returns True."""
+        return True
+
+    @property
+    def is_anonymous(self):
+        """An actual user is never anonymous. Always returns False."""
+        return False
+
+    @property
+    def is_active(self):
+        """Returns True for all users for simplicity. This would need to be a column
+        in the database in order to deactivate users."""
+        return True
+
+    def get_id(self):
+        """Returns the user id. We're using the generated uuid rather than the database
+        primary key."""
+        return self.uid
 
     def __repr__(self):
         return f"<User {self.username}>"

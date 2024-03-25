@@ -46,15 +46,13 @@ def prepare_credential_creation(user):
         rp_name="AI Test My Code",  # Relying Party Name (a user-friendly name for our site)
         rp_id=_hostname(),  # server's hostname from helper function
         user_id=uid_bytes,  # user id (bytes necessary see https://github.com/duo-labs/py_webauthn/blob/7d73676e17a71945154c510f23d32413ce0ee8cf/examples/registration.py#L36)
-        # user_id=user.uid,  # user id (bytes necessary see https://github.com/duo-labs/py_webauthn/blob/7d73676e17a71945154c510f23d32413ce0ee8cf/examples/registration.py#L36)
         user_name=user.username, 
         # Require the user to verify their identity to the authenticator
         # authenticator_selection=AuthenticatorSelectionCriteria(
             # user_verification=UserVerificationRequirement.REQUIRED,),
-
     )
 
-    # Redis to store the binary challenge value. FEATURE: change this to track idle time
+    # Redis to store the binary challenge value. TODO: change this to configurable "track idle" time
     REGISTRATION_CHALLENGES.set(user.uid, public_credential_creation_options.challenge)
     REGISTRATION_CHALLENGES.expire(user.uid, datetime.timedelta(minutes=10))
 
