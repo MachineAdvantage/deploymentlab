@@ -1,11 +1,13 @@
 import os
 import datetime
 import uuid
+import json
 from urllib.parse import urlparse
 import webauthn
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
+    PublicKeyCredentialDescriptor,
 )
 
 from flask import Blueprint, request, current_app
@@ -19,6 +21,9 @@ REDIS_PORT = os.getenv("REDIS_PORT")
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 REGISTRATION_CHALLENGES = Redis(
     host=REDIS_HOST, port=REDIS_PORT, db=0, password=REDIS_PASSWORD
+)
+AUTHENTICATION_CHALLENGES = Redis(
+    host=REDIS_HOST, port=REDIS_PORT, db=1, password=REDIS_PASSWORD
 )
 
 
@@ -82,4 +87,59 @@ def verify_and_save_credential(user, registration_credential):
     current_app.logger.info('credential success') #, flush=True)
 
     db.session.add(credential)
+    db.session.commit()
+
+
+def prepare_login_with_credential(user):
+    """
+    Prepare the authentication options for a user trying to log in.
+    """
+    allowed_credentials = [
+        PublicKeyCredentialDescriptor(id=credential.credential_id)
+        for credential in user.credentials
+    ]
+
+    authentication_options = webauthn.generate_authentication_options(
+        rp_id=_hostname(),
+        allow_credentials=allowed_credentials,
+    )
+
+    AUTHENTICATION_CHALLENGES.set(user.uid, authentication_options.challenge)
+    AUTHENTICATION_CHALLENGES.expire(user.uid, datetime.timedelta(minutes=10))
+
+    return json.loads(webauthn.options_to_json(authentication_options))
+
+
+def verify_authentication_credential(user, authentication_credential):
+    """
+    Verify a submitted credential against a credential in the database and the
+    challenge stored in redis.
+    """
+    expected_challenge = AUTHENTICATION_CHALLENGES.get(user.uid)
+    stored_credential = (
+        WebAuthnCredential.query.with_parent(user).filter_by(
+            credential_id=webauthn.base64url_to_bytes(authentication_credential.id)
+        ).first()
+    )
+    
+    # This will raise if the credential does not authenticate
+    # It seems that safari doesn't track credential sign count correctly, so we just
+    # have to leave it on zero so that it will authenticate
+    webauthn.verify_authentication_response(
+        credential=authentication_credential,
+        expected_challenge=expected_challenge,
+        expected_origin=f"https://{_hostname()}",
+        expected_rp_id=_hostname(),
+        credential_public_key=stored_credential.credential_public_key,
+        credential_current_sign_count=0
+    )
+    
+    # After a successful authentication, expire the challenge so it can't be used again.
+    AUTHENTICATION_CHALLENGES.expire(user.uid, datetime.timedelta(seconds=1))
+
+    
+    # Update the credential sign count after using, then save it back to the database.
+    # This is mainly for reference since we can't use it because of Safari's weirdness.
+    stored_credential.current_sign_count += 1
+    db.session.add(stored_credential)
     db.session.commit()
