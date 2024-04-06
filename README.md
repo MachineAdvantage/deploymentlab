@@ -3,6 +3,9 @@ A simple cloud hosted LLM-powered unit test creator that ensures that the code c
 
 Be sure that you add the passwords for your db to a file called `.env` at the same level as the docker-compose. DO NOT PUSH YOUR PASSWORDS TO GIT.
 
+## Setup
+
+When developing don't forget to run ngrok to forward your local server to an HTTPS endpoint, because without HTTPS Auth will not work.
 
 ### Acknowledgement
 
