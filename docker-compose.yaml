@@ -51,6 +51,7 @@ services:
 
   db:
     image: postgres:latest
+    restart: always
     environment:
       POSTGRES_USER: 'databaseuser'
       POSTGRES_PASSWORD: 'supersecretdbpassword'

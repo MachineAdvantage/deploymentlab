@@ -1,3 +1,4 @@
+"""Database and User models for the Flask app."""
 import uuid
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import backref
@@ -15,7 +16,7 @@ def _str_uuid():
 # Convert the UUID bytes to a UUID object
 # uuid_obj = uuid.UUID(bytes=uuid_bytes)
 
-    
+
 class User(db.Model):
     """A user in the database"""
 
@@ -29,8 +30,6 @@ class User(db.Model):
         backref=backref("user", cascade="all, delete"),
         lazy=True
     )
-    # TODO update; use of relationship. back_populates with explicit relationship() constructs should be preferred.
-
     @property
     def is_authenticated(self):
         """If we can access this user model from current user, they are authenticated,
@@ -59,7 +58,7 @@ class User(db.Model):
 
 class WebAuthnCredential(db.Model):
     """Stored WebAuthn Credentials as a replacement for passwords."""
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     credential_id = db.Column(db.LargeBinary, nullable=False)

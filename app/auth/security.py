@@ -1,16 +1,15 @@
+"""Security models for the authentication system"""
 import os
 import datetime
 import uuid
 import json
 from urllib.parse import urlparse
-import secrets 
+import secrets
 
 from flask import Blueprint, request, current_app, url_for
 from redis import Redis
 import webauthn
 from webauthn.helpers.structs import (
-    AuthenticatorSelectionCriteria,
-    UserVerificationRequirement,
     PublicKeyCredentialDescriptor,
 )
 from argon2 import PasswordHasher
@@ -35,7 +34,7 @@ EMAIL_AUTH_SECRETS = Redis(
 
 # Globals
 auth = Blueprint("auth", __name__, template_folder="templates")
-ph = PasswordHasher() 
+ph = PasswordHasher()
 
 
 def _hostname():
@@ -53,14 +52,14 @@ def prepare_credential_creation(user):
     public_credential_creation_options = webauthn.generate_registration_options(
         rp_name="AI Test My Code",  # Relying Party Name (a user-friendly name for our site)
         rp_id=_hostname(),  # server's hostname from helper function
-        user_id=uid_bytes,  # user id (bytes necessary see https://github.com/duo-labs/py_webauthn/blob/7d73676e17a71945154c510f23d32413ce0ee8cf/examples/registration.py#L36)
-        user_name=user.username, 
+        user_id=uid_bytes,  # user id in bytes
+        user_name=user.username,
         # Require the user to verify their identity to the authenticator
         # authenticator_selection=AuthenticatorSelectionCriteria(
             # user_verification=UserVerificationRequirement.REQUIRED,),
     )
 
-    # Redis to store the binary challenge value. TODO: change this to configurable "track idle" time
+    # Redis to store the binary challenge value.
     REGISTRATION_CHALLENGES.set(user.uid, public_credential_creation_options.challenge)
     REGISTRATION_CHALLENGES.expire(user.uid, datetime.timedelta(minutes=10))
 
@@ -74,7 +73,7 @@ def verify_and_save_credential(user, registration_credential):
 
     # If the credential is somehow invalid (i.e. the challenge is wrong),
     # this will raise an exception. It's easier to handle that in the view
-    # since we can send back an error message directly. 
+    # since we can send back an error message directly.
 
     auth_verification = webauthn.verify_registration_response(
         credential=registration_credential,
@@ -127,7 +126,7 @@ def verify_authentication_credential(user, authentication_credential):
             credential_id=webauthn.base64url_to_bytes(authentication_credential.id)
         ).first()
     )
-    
+
     # This will raise if the credential does not authenticate
     # It seems that safari doesn't track credential sign count correctly, so we just
     # have to leave it on zero so that it will authenticate
@@ -139,11 +138,11 @@ def verify_authentication_credential(user, authentication_credential):
         credential_public_key=stored_credential.credential_public_key,
         credential_current_sign_count=0
     )
-    
+
     # After a successful authentication, expire the challenge so it can't be used again.
     AUTHENTICATION_CHALLENGES.expire(user.uid, datetime.timedelta(seconds=1))
 
-    
+
     # Update the credential sign count after using, then save it back to the database.
     # This is mainly for reference since we can't use it because of Safari's weirdness.
     stored_credential.current_sign_count += 1
@@ -161,7 +160,7 @@ def generate_magic_link(user_uid):
 
 
 def verify_magic_link(user_uid, secret):
-    """Verify the secret from a magic login link against the saved hash for that 
+    """Verify the secret from a magic login link against the saved hash for that
     user."""
     secret_hash = EMAIL_AUTH_SECRETS.get(user_uid)
     if ph.verify(secret_hash, secret):

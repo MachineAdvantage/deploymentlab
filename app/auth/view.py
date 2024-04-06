@@ -1,18 +1,16 @@
+"""Views for the passwordless authentication system."""
 import datetime
 import json
 
 from flask import (
-    Blueprint, render_template, request, make_response, session, 
+    Blueprint, render_template, request, make_response, session,
     abort, current_app, url_for, redirect)
 from sqlalchemy import or_, func
 from sqlalchemy.exc import IntegrityError
 from webauthn.helpers.exceptions import (
     InvalidRegistrationResponse, InvalidAuthenticationResponse)
-from webauthn.helpers.structs import (
-    AuthenticationCredential, PublicKeyCredentialCreationOptions)
 from webauthn.helpers import (
-    base64url_to_bytes, bytes_to_base64url, parse_registration_credential_json,
-    parse_authentication_credential_json)
+    parse_registration_credential_json, parse_authentication_credential_json)
 from flask_login import login_user, login_required, current_user, logout_user
 
 from models import db, User
@@ -24,6 +22,7 @@ auth = Blueprint("auth", __name__, template_folder="templates")
 
 @auth.route("/register")
 def register():
+    """Render the user registration form."""
     return render_template("auth/register.html")
 
 
@@ -45,8 +44,8 @@ def create_user():
             error="That username or email address is already in use. "
             "Please enter a different one.",
         )
-    
-    login_user(user)  # TODO shouldn't this be further down?
+
+    login_user(user)
     session['used_webauthn'] = False
     pcco_json = security.prepare_credential_creation(user)
 
@@ -56,7 +55,7 @@ def create_user():
             public_credential_creation_options=pcco_json,
         )
     )
-    session['registration_user_uid'] = user.uid  # TODO still necessary with flask login?
+    session['registration_user_uid'] = user.uid
     return res
 
 
@@ -69,7 +68,7 @@ def login():
     # If not remembered, we render login page w/o username
     if not user:
         return render_template("auth/login.html", username=None, auth_options=None)
-    
+
     # If remembered we prepare the with username and options
     auth_options = security.prepare_login_with_credential(user)
     session['login_user_uid'] = user.uid
@@ -80,6 +79,7 @@ def login():
 @auth.route("/logout")
 @login_required
 def logout():
+    """Log out the current user."""
     logout_user()
     return redirect(url_for('index'))
 
@@ -100,11 +100,11 @@ def add_credential():
         )
         res.set_cookie(
             "user_uid",
-            current_user.uid,  # TODO should this be .get_id()?
+            current_user.uid,
             httponly=True,
             secure=True,
             samesite="strict",
-            max_age=datetime.timedelta(days=30), #TODO: change to less
+            max_age=datetime.timedelta(days=30),
         )
         return res
     except InvalidRegistrationResponse as e:
@@ -178,11 +178,11 @@ def login_switch_user():
 @auth.route("/verify-login-credential", methods=["POST"])
 def verify_login_credential():
     """Remove a remembered user and show the username form again."""
-    user_uid = session.get("login_user_uid")  # TODO should this be current_user?
+    user_uid = session.get("login_user_uid")
     user = User.query.filter_by(uid=user_uid).first()
     if not user:
         abort(make_response('{"verified": false}', 400))
-    
+
     authetication_data = request.get_data()
     authetication_json_data = json.loads(authetication_data)
 
@@ -194,7 +194,7 @@ def verify_login_credential():
         next_ = request.args.get('next')
         if not next_ or not util.is_safe_url(next_):
             next_ = url_for("auth.user_profile")
-            
+
         return util.make_json_response({"verified": True, "next": next_})
         # return make_response('{"verified": true}')
     except InvalidAuthenticationResponse as e:
@@ -205,6 +205,7 @@ def verify_login_credential():
 @auth.route('/profile')
 @login_required
 def user_profile():
+    """Render the user profile page."""
     return render_template("auth/user_profile.html")
 
 
@@ -248,13 +249,13 @@ def magic_link():
     url_secret = request.args.get("secret")
     user_uid = request.cookies.get("magic_link_user_uid")
     user = User.query.filter_by(uid=user_uid).first()
-    
+
     if not user:
         return redirect(url_for("auth.login"))
-    
+
     if security.verify_magic_link(user_uid, url_secret):
         login_user(user)
         session['used_webauthn'] = False
         return redirect(url_for("auth.user_profile"))
-    
+
     return redirect(url_for("auth.login"))

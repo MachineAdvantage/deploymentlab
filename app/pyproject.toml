@@ -17,10 +17,16 @@ webauthn = "^2.0.0"
 flask-login = "^0.6.3"
 argon2-cffi = "^23.1.0"
 flask-mailman = "^1.0.0"
+pylint = "^3.1.0"
+pytest = "^8.1.1"
 
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.0.1"
+
+
+[tool.pylint.MASTER]
+ignore-paths = "migrations"
 
 
 [build-system]
